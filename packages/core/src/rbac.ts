@@ -75,9 +75,23 @@ export function can(role: Role, capability: Capability): boolean {
   return CAPABILITY_MATRIX[role]?.has(capability) ?? false;
 }
 
+/**
+ * True if the role has at least one of the listed capabilities. Use this
+ * (not a single `can()` call) wherever a page/action is legitimately
+ * reachable two different ways — e.g. an Admin/Sales reading the whole
+ * Skills Matrix vs. a User reading only their own CV — so the check
+ * doesn't silently exclude the "own data" case (see rbac.test.ts for the
+ * /hr regression this guards against: the route table admits USER, but
+ * USER only ever holds the "own" capability, never the "any" one).
+ */
+export function canAny(role: Role, capabilities: Capability[]): boolean {
+  return capabilities.some((capability) => can(role, capability));
+}
+
 export class ForbiddenError extends Error {
-  constructor(capability: Capability) {
-    super(`Role lacks capability: ${capability}`);
+  constructor(capability: Capability | Capability[]) {
+    const label = Array.isArray(capability) ? capability.join(" or ") : capability;
+    super(`Role lacks capability: ${label}`);
     this.name = "ForbiddenError";
   }
 }
@@ -90,6 +104,13 @@ export class ForbiddenError extends Error {
 export function assertCan(role: Role, capability: Capability): void {
   if (!can(role, capability)) {
     throw new ForbiddenError(capability);
+  }
+}
+
+/** Same as assertCan, but passes if the role holds any one of the listed capabilities. */
+export function assertCanAny(role: Role, capabilities: Capability[]): void {
+  if (!canAny(role, capabilities)) {
+    throw new ForbiddenError(capabilities);
   }
 }
 

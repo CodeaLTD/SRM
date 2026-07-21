@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import MailComposer from "nodemailer/lib/mail-composer/index.js";
 import { createGoogleClient } from "./client";
 
 export interface SendGmailInput {
@@ -10,33 +11,32 @@ export interface SendGmailInput {
   refreshToken?: string;
 }
 
-function buildMimeMessage(input: SendGmailInput): string {
-  const boundary = `srm-${Date.now()}`;
-  const parts = [
-    `To: ${input.to}`,
-    `Subject: ${input.subject}`,
-    "MIME-Version: 1.0",
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    "",
-    `--${boundary}`,
-    "Content-Type: text/html; charset=UTF-8",
-    "",
-    input.html,
-  ];
+/**
+ * Built on nodemailer's MailComposer rather than hand-rolled string
+ * concatenation: `to`/`subject`/attachment filenames can contain
+ * user-influenced data (a task title, a CRM contact's name, an uploaded
+ * filename), and MailComposer — unlike naive template interpolation —
+ * strips CR/LF from header values (preventing header injection) and
+ * RFC 2047-encodes non-ASCII subjects (needed for Cyrillic, given this is
+ * a Bulgarian company) instead of sending them as raw mojibake.
+ */
+export async function buildMimeMessage(input: SendGmailInput): Promise<string> {
+  const mail = new MailComposer({
+    to: input.to,
+    subject: input.subject,
+    html: input.html,
+    attachments: input.attachments?.map((a) => ({
+      filename: a.filename,
+      content: a.content,
+      contentType: a.contentType,
+    })),
+  });
 
-  for (const attachment of input.attachments ?? []) {
-    parts.push(
-      `--${boundary}`,
-      `Content-Type: ${attachment.contentType}`,
-      "Content-Transfer-Encoding: base64",
-      `Content-Disposition: attachment; filename="${attachment.filename}"`,
-      "",
-      attachment.content.toString("base64"),
-    );
-  }
+  const message = await new Promise<Buffer>((resolve, reject) => {
+    mail.compile().build((err, msg) => (err ? reject(err) : resolve(msg)));
+  });
 
-  parts.push(`--${boundary}--`);
-  return Buffer.from(parts.join("\r\n")).toString("base64url");
+  return message.toString("base64url");
 }
 
 /**
@@ -55,6 +55,6 @@ export async function sendGmail(input: SendGmailInput): Promise<void> {
 
   await gmail.users.messages.send({
     userId: "me",
-    requestBody: { raw: buildMimeMessage(input) },
+    requestBody: { raw: await buildMimeMessage(input) },
   });
 }
