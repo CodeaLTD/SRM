@@ -2,7 +2,10 @@ import { closePdfBrowser } from "@codea-srm/core";
 import { startHealthCheckWorker } from "./queues/health-check.js";
 import { startOshDeadlineAlertWorker } from "./queues/osh-deadline-alert.js";
 import { startScheduledEmailWorker } from "./queues/scheduled-email.js";
-import { startSubscriptionRenewalAlertWorker } from "./queues/subscription-renewal-alert.js";
+import {
+  scheduleSubscriptionRenewalDailyScan,
+  startSubscriptionRenewalAlertWorker,
+} from "./queues/subscription-renewal-alert.js";
 
 const workers = [
   startHealthCheckWorker(),
@@ -10,6 +13,12 @@ const workers = [
   startOshDeadlineAlertWorker(),
   startScheduledEmailWorker(),
 ];
+
+// Self-scheduling recurring job (not a request-triggered enqueue), so
+// worker registers its own repeat schedule at boot rather than apps/web
+// enqueueing it — a deliberate exception to queue.ts's "web enqueues,
+// worker only runs" comment.
+await scheduleSubscriptionRenewalDailyScan();
 
 console.log(`[worker] listening on ${workers.length} queues`);
 
