@@ -1,0 +1,122 @@
+// Codea SRM — CORE data model.
+// Module-specific models (finance, tasks, hr, osh, crm) are added per-epic
+// once CORE (auth/RBAC/audit) is verified end to end.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// PRD §5/§6 — four roles, default-deny. Every RBAC check in packages/core
+// switches on this enum; do not add a role without updating the RBAC matrix.
+enum Role {
+  ADMIN
+  ANALYST
+  SALES
+  USER
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  name          String?
+  image         String?
+  role          Role     @default(USER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  auditEntries  AuditLog[]
+  googleTokens  GoogleToken[]
+
+  @@map("users")
+}
+
+// Auth.js (NextAuth) Prisma adapter models.
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// Encrypted Gmail + Calendar OAuth tokens, separate from Auth.js's login
+// Account record so incremental-consent scopes can be requested/revoked
+// independently of session login. Values are encrypted at rest by
+// packages/core/src/google before they ever reach Prisma.
+model GoogleToken {
+  id            String   @id @default(cuid())
+  userId        String
+  scope         String
+  encryptedBlob String   @db.Text
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scope])
+  @@map("google_tokens")
+}
+
+// Immutable, append-only audit trail (NFR-AUDIT). UPDATE/DELETE on this
+// table is blocked at the database level — see
+// prisma/migrations/*_audit_log_immutability/migration.sql. Application
+// code must never attempt to mutate a row here; only packages/core/src/audit
+// should insert into this table.
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actorRole Role?
+  action    String
+  resource  String
+  resourceId String?
+  ipAddress String?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([resource, resourceId])
+  @@index([createdAt])
+  @@map("audit_log")
+}
