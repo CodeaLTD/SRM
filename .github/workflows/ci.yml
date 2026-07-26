@@ -41,6 +41,8 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm --filter @codea-srm/core exec puppeteer browsers install chrome
+
       - run: pnpm --filter @codea-srm/db generate
 
       - run: pnpm --filter @codea-srm/db exec prisma migrate deploy
@@ -48,14 +50,5 @@ jobs:
       - run: pnpm lint
 
       - run: pnpm typecheck
-
-      - name: "DEBUG env passthrough"
-        run: |
-          echo "=== shell sees ==="
-          echo "DATABASE_URL=$DATABASE_URL"
-          echo "=== direct exec (bypass turbo) sees ==="
-          pnpm --filter @codea-srm/core exec node -e "console.log('DATABASE_URL=', process.env.DATABASE_URL)"
-          echo "=== through turbo run test sees ==="
-          pnpm exec turbo run test --filter=@codea-srm/core 2>&1 || true
 
       - run: pnpm test
