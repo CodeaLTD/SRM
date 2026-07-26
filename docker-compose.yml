@@ -36,8 +36,11 @@ services:
     environment:
       DATABASE_URL: postgresql://srm:srm@postgres:5432/srm?schema=public
       REDIS_URL: redis://redis:6379
+      FILE_STORAGE_ROOT: /data/storage
     ports:
       - "3000:3000"
+    volumes:
+      - finance_storage:/data/storage
     depends_on:
       postgres:
         condition: service_healthy
@@ -61,3 +64,4 @@ services:
 
 volumes:
   postgres_data:
+  finance_storage:

@@ -24,6 +24,10 @@ describe("can — PRD §6 role matrix", () => {
     // Finance read+edit — Admin + Analyst only.
     ["finance:read", [Role.ADMIN, Role.ANALYST]],
     ["finance:write", [Role.ADMIN, Role.ANALYST]],
+    // Confirming a "За проверка" transaction commits it to the ledger view
+    // (FIN-5) — modeled as its own capability, currently the same role set
+    // as finance:write, so intent is explicit at each call site.
+    ["finance:confirm", [Role.ADMIN, Role.ANALYST]],
     // HR CVs / Skills Matrix — Admin + Sales full access; Analyst none.
     ["hr:cv:read", [Role.ADMIN, Role.SALES]],
     // Business Network (CRM) — Admin + Sales only.

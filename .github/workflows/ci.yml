@@ -8,6 +8,25 @@ on:
 jobs:
   lint-typecheck-test:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: srm
+          POSTGRES_PASSWORD: srm
+          POSTGRES_DB: srm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U srm"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://srm:srm@localhost:5432/srm?schema=public
+
     steps:
       - uses: actions/checkout@v4
 
@@ -22,7 +41,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm --filter @codea-srm/core exec puppeteer browsers install chrome
+
       - run: pnpm --filter @codea-srm/db generate
+
+      - run: pnpm --filter @codea-srm/db exec prisma migrate deploy
 
       - run: pnpm lint
 

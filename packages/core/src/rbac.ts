@@ -11,6 +11,7 @@ import { Role } from "@codea-srm/db";
 export type Capability =
   | "finance:read"
   | "finance:write"
+  | "finance:confirm"
   | "finance:delete"
   | "hr:cv:read"
   | "hr:cv:write:own"
@@ -30,6 +31,7 @@ const CAPABILITY_MATRIX: Record<Role, ReadonlySet<Capability>> = {
   ADMIN: new Set<Capability>([
     "finance:read",
     "finance:write",
+    "finance:confirm",
     "finance:delete",
     "hr:cv:read",
     "hr:cv:write:any",
@@ -47,6 +49,7 @@ const CAPABILITY_MATRIX: Record<Role, ReadonlySet<Capability>> = {
   ANALYST: new Set<Capability>([
     "finance:read",
     "finance:write",
+    "finance:confirm",
     "leave:request:own",
     "tasks:read",
     "tasks:write",

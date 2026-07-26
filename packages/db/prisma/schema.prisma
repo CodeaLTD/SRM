@@ -35,6 +35,12 @@ model User {
   auditEntries  AuditLog[]
   googleTokens  GoogleToken[]
 
+  uploadedDocuments      UploadedDocument[]
+  generatedDocuments     GeneratedDocument[]
+  transactionsCreated    Transaction[]        @relation("TransactionCreatedBy")
+  transactionsConfirmed  Transaction[]        @relation("TransactionConfirmedBy")
+  subscriptions          Subscription[]
+
   @@map("users")
 }
 
@@ -119,4 +125,144 @@ model AuditLog {
   @@index([resource, resourceId])
   @@index([createdAt])
   @@map("audit_log")
+}
+
+// FIN — finance module models (Epic 01). FIN-3 (OCR/AI extraction) is out
+// of scope here; extraction fields are always left null on upload and
+// filled in by hand — see packages/core/src/finance/extraction.ts for the
+// stubbed seam a future OCR epic replaces without touching this schema.
+
+enum TransactionType {
+  INCOME
+  EXPENSE
+}
+
+// FOR_REVIEW = "За проверка" (FIN-4). VOID is a soft-delete — financial
+// records are never hard-deleted so the audit trail stays intact.
+enum TransactionStatus {
+  FOR_REVIEW
+  CONFIRMED
+  VOID
+}
+
+enum TransactionCategory {
+  SUPPLIES
+  SOFTWARE_SUBSCRIPTION
+  TRAVEL
+  UTILITIES
+  PROFESSIONAL_SERVICES
+  CLIENT_INCOME
+  OTHER_INCOME
+  OTHER_EXPENSE
+}
+
+enum DocumentType {
+  RECEIPT
+  ADVANCE_REPORT
+  PROFORMA_INVOICE
+  SUPPLIER_INVOICE_UPLOAD
+}
+
+// A supplier-side file a user uploads (FIN-4). Distinct from
+// GeneratedDocument, which is output the company issues.
+model UploadedDocument {
+  id           String       @id @default(cuid())
+  documentType DocumentType
+  storageKey   String
+  originalName String
+  mimeType     String
+  sizeBytes    Int
+  uploadedById String
+  uploadedAt   DateTime     @default(now())
+
+  uploadedBy  User         @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+  transaction Transaction?
+
+  @@index([documentType])
+  @@map("uploaded_documents")
+}
+
+model Transaction {
+  id             String              @id @default(cuid())
+  type           TransactionType
+  status         TransactionStatus   @default(CONFIRMED)
+  category       TransactionCategory?
+  description    String?
+  // ЕИК/Булстат + amounts are nullable because an upload-created
+  // transaction starts with every extraction field blank (FIN-4/5 shell)
+  // until a reviewer fills it in and confirms.
+  supplierName   String?
+  supplierTaxId  String?
+  amountMinor    Int?
+  vatAmountMinor Int?
+  currency       String              @default("BGN")
+  issueDate      DateTime?
+
+  sourceDocumentId String?           @unique
+  sourceDocument    UploadedDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+
+  createdById   String
+  createdBy     User      @relation("TransactionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  confirmedById String?
+  confirmedBy   User?     @relation("TransactionConfirmedBy", fields: [confirmedById], references: [id], onDelete: SetNull)
+  confirmedAt   DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([type, issueDate])
+  @@map("transactions")
+}
+
+// FIN-1 output artifacts (receipts / advance reports / proforma invoices).
+// Kept separate from UploadedDocument so sequential numbering only ever
+// applies to documents the company issues, not files it receives.
+model GeneratedDocument {
+  id             String       @id @default(cuid())
+  documentType   DocumentType
+  documentNumber String       @unique
+  payload        Json
+  storageKey     String
+  createdById    String
+  createdBy      User         @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt      DateTime     @default(now())
+
+  @@index([documentType, createdAt])
+  @@map("generated_documents")
+}
+
+// One row per DocumentType, incremented inside a transaction to hand out
+// numbers like "RCT-2026-0001" (PRD §14 Q4 — simple default, not yet
+// validated against Bulgarian statutory numbering rules).
+model DocumentSequence {
+  documentType DocumentType @id
+  lastNumber   Int          @default(0)
+  year         Int
+
+  @@map("document_sequences")
+}
+
+model Subscription {
+  id                  String    @id @default(cuid())
+  name                String
+  url                 String?
+  vendor              String?
+  feeAmountMinor      Int
+  currency            String
+  billingIntervalDays Int       @default(30)
+  renewsAt            DateTime
+  alertLeadDays       Int       @default(7)
+  // Idempotency guard for the daily renewal-scan job (FIN-7): set to the
+  // `renewsAt` value the last alert was sent for, so a rerun of the scan
+  // on the same day (or after a crash mid-scan) never double-sends.
+  lastAlertedForRenewsAt DateTime?
+  unsubscribedAt      DateTime?
+  ownerId             String
+  owner               User      @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([renewsAt])
+  @@map("subscriptions")
 }
