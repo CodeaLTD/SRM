@@ -1,5 +1,5 @@
 import { afterAll, describe, expect, it } from "vitest";
-import { closePdfBrowser, renderPdf } from "./pdf";
+import { closePdfBrowser, renderPdf } from "../src/pdf";
 
 // Actually launches headless Chromium and renders a PDF (NFR-DOC) — no DB
 // or Redis needed, so this can run standalone (`pnpm --filter

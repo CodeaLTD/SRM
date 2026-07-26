@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { Role } from "@codea-srm/db";
-import { assertCan, can, ForbiddenError, scopeToOwnerUnless, type Capability } from "./rbac";
+import {
+  assertCan,
+  assertCanAny,
+  can,
+  canAny,
+  ForbiddenError,
+  scopeToOwnerUnless,
+  type Capability,
+} from "../src/rbac";
 
 /**
  * These cases are transcribed directly from PRD §6's RBAC table — that
@@ -60,6 +68,34 @@ describe("assertCan", () => {
   it("throws ForbiddenError when the role lacks the capability", () => {
     expect(() => assertCan(Role.USER, "admin:delete:critical")).toThrow(ForbiddenError);
     expect(() => assertCan(Role.SALES, "finance:read")).toThrow(ForbiddenError);
+  });
+});
+
+describe("canAny / assertCanAny", () => {
+  // Regression test for the /hr page bug: middleware's ROUTE_ROLE_REQUIREMENTS
+  // admits USER to /hr, but USER only ever holds hr:cv:write:own, never
+  // hr:cv:read — a plain assertCan("hr:cv:read") throws for a legitimate USER.
+  const HR_PAGE_CAPABILITIES: Capability[] = ["hr:cv:read", "hr:cv:write:own"];
+
+  it("is true for a role holding only the 'own' capability, not the 'any' one", () => {
+    expect(canAny(Role.USER, HR_PAGE_CAPABILITIES)).toBe(true);
+  });
+
+  it("is true for a role holding the full-access capability", () => {
+    expect(canAny(Role.ADMIN, HR_PAGE_CAPABILITIES)).toBe(true);
+    expect(canAny(Role.SALES, HR_PAGE_CAPABILITIES)).toBe(true);
+  });
+
+  it("is false when the role holds neither capability", () => {
+    expect(canAny(Role.ANALYST, HR_PAGE_CAPABILITIES)).toBe(false);
+  });
+
+  it("assertCanAny does not throw when at least one capability matches", () => {
+    expect(() => assertCanAny(Role.USER, HR_PAGE_CAPABILITIES)).not.toThrow();
+  });
+
+  it("assertCanAny throws ForbiddenError when none match", () => {
+    expect(() => assertCanAny(Role.ANALYST, HR_PAGE_CAPABILITIES)).toThrow(ForbiddenError);
   });
 });
 
