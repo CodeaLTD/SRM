@@ -47,6 +47,14 @@ cp .env.example .env
 
 Fill in `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` (and the `GOOGLE_OAUTH_*` vars) once leadership provides Google Cloud OAuth credentials. `DATABASE_URL` and `REDIS_URL` already point at the Docker Compose services below and don't need editing for local dev.
 
+The Prisma CLI only reads a `.env` sitting next to `schema.prisma`, not the repo-root one — `packages/db/prisma/schema.prisma` won't see the root `.env` on its own. Copy it in too (and re-copy whenever the root `.env` changes):
+
+```sh
+cp .env packages/db/.env
+```
+
+(A symlink would avoid the duplication, but creating one on Windows needs admin rights or Developer Mode enabled, so a plain copy is the path of least resistance here. `packages/db/.env` is covered by the root `.gitignore`'s `.env` pattern.)
+
 ### 3. Start infrastructure
 
 ```sh
