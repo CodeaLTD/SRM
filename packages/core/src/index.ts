@@ -15,3 +15,4 @@ export * from "./documents/proforma-invoice-template";
 export * from "./finance/categorization";
 export * from "./finance/extraction";
 export * from "./finance/subscription-renewal";
+export * from "./finance/upload-validation";

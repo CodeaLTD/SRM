@@ -17,8 +17,8 @@ export default async function UploadSupplierInvoicePage() {
       <form action={uploadSupplierInvoice} encType="multipart/form-data">
         <div>
           <label>
-            Invoice file (PDF/image)
-            <input name="file" type="file" accept="application/pdf,image/*" required />
+            Invoice file (PDF, PNG, JPEG, or WebP — max 20MB)
+            <input name="file" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" required />
           </label>
         </div>
         <button type="submit">Upload</button>

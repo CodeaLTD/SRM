@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import {
   assertCan,
+  assertValidSupplierInvoiceFile,
   extractInvoiceFields,
   nextDocumentNumber,
   recordAuditEntry,
@@ -75,6 +76,9 @@ export async function uploadSupplierInvoice(formData: FormData): Promise<void> {
   if (!file || file.size === 0) {
     throw new Error("A file is required");
   }
+  // Re-validate server-side — the <input accept> the form uses is a UX
+  // hint only and doesn't stop a spoofed Content-Type reaching here.
+  assertValidSupplierInvoiceFile({ mimeType: file.type, sizeBytes: file.size });
   const buffer = Buffer.from(await file.arrayBuffer());
 
   const { storageKey, sizeBytes } = await saveFile({

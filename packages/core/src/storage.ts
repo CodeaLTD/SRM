@@ -53,6 +53,17 @@ export async function saveFile({ buffer, originalName, category }: SaveFileInput
   return { storageKey, sizeBytes: buffer.length };
 }
 
+/**
+ * Strips characters that could break out of a quoted `Content-Disposition`
+ * filename value (a `"` ends the quoted string early; CR/LF could inject
+ * additional header content). Filenames served in HTTP responses come from
+ * user input (`originalName`) — never interpolate them into a header
+ * unsanitized.
+ */
+export function sanitizeFilenameForHeader(name: string): string {
+  return name.replace(/["\r\n]/g, "_");
+}
+
 export function getFilePath(storageKey: string): string {
   assertSafeKey(storageKey);
   return path.join(storageRoot(), storageKey);
