@@ -43,6 +43,9 @@ describe("can — PRD §6 role matrix", () => {
     ["tasks:write", [Role.ADMIN, Role.ANALYST, Role.SALES, Role.USER]],
     // "Own leave" is a checkmark for every role.
     ["leave:request:own", [Role.ADMIN, Role.ANALYST, Role.SALES, Role.USER]],
+    // Analyst gets leave/sick reports for ТРЗ (read); Admin also has direct
+    // read access to the report view (separate from leave:approve).
+    ["leave:report:read", [Role.ADMIN, Role.ANALYST]],
   ])("%s is granted to exactly %j", (capability, expectedRoles) => {
     for (const role of Object.values(Role)) {
       expect(can(role, capability), `${role} x ${capability}`).toBe(

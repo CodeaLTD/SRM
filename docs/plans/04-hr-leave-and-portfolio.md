@@ -66,7 +66,7 @@ Turn tribal HR knowledge into a searchable asset and make leave a clean, auditab
 - [x] Leave request form (type, period, substitute).
 - [x] Admin approval flow (audit-logged).
 - [ ] OOO calendar event on approval; task-assignment guard. *(deferred — no Google Calendar OAuth available yet; `approveLeaveRequest` in `apps/web/src/app/(dashboard)/leave/actions.ts` has a `TODO(HR-6)` seam pointing at the existing `upsertCalendarEvent` helper in `packages/core/src/google/calendar.ts`, and `packages/core/src/hr/leave-period.ts`'s `overlapsExistingLeave` is already written to be reusable by the future TASK-3 assignment guard)*
-- [ ] Leave/sick report for Analyst (ТРЗ, read). *(not built in this pass — Analyst currently only has `leave:request:own`, no read-all capability for leave reporting; needs its own RBAC capability + report view)*
+- [x] Leave/sick report for Analyst (ТРЗ, read). Read-only `/leave/report` page (Admin + Analyst, new `leave:report:read` capability), optional type filter, no write access.
 
 **Milestone 4.3 — Talent tooling (HR-2/3, Phase 2)**
 - [ ] Search people by technology/skill.

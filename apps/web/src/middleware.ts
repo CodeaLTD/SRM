@@ -28,6 +28,7 @@ const ROUTE_ROLE_REQUIREMENTS: { prefix: string; roles: Role[] }[] = [
   { prefix: "/hr", roles: ["ADMIN", "SALES", "USER"] },
   { prefix: "/osh", roles: ["ADMIN", "USER"] },
   { prefix: "/leave/admin", roles: ["ADMIN"] },
+  { prefix: "/leave/report", roles: ["ADMIN", "ANALYST"] },
   { prefix: "/leave", roles: ["ADMIN", "ANALYST", "SALES", "USER"] },
 ];
 

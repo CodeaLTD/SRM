@@ -24,6 +24,11 @@ export default async function LeavePage() {
           <Link href="/leave/admin">Pending approvals</Link>
         </p>
       )}
+      {can(role, "leave:report:read") && (
+        <p>
+          <Link href="/leave/report">Leave report</Link>
+        </p>
+      )}
       <p>
         <Link href="/leave/new">Request leave</Link>
       </p>

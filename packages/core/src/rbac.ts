@@ -18,6 +18,7 @@ export type Capability =
   | "hr:cv:write:any"
   | "leave:request:own"
   | "leave:approve"
+  | "leave:report:read"
   | "osh:register:manage"
   | "osh:instruction:confirm:own"
   | "crm:read"
@@ -37,6 +38,7 @@ const CAPABILITY_MATRIX: Record<Role, ReadonlySet<Capability>> = {
     "hr:cv:write:any",
     "leave:request:own",
     "leave:approve",
+    "leave:report:read",
     "osh:register:manage",
     "osh:instruction:confirm:own",
     "crm:read",
@@ -51,6 +53,7 @@ const CAPABILITY_MATRIX: Record<Role, ReadonlySet<Capability>> = {
     "finance:write",
     "finance:confirm",
     "leave:request:own",
+    "leave:report:read",
     "tasks:read",
     "tasks:write",
   ]),
