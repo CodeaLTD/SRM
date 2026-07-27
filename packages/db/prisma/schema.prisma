@@ -22,24 +22,29 @@ enum Role {
 }
 
 model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  name          String?
-  image         String?
-  role          Role     @default(USER)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  image     String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  accounts      Account[]
-  sessions      Session[]
-  auditEntries  AuditLog[]
-  googleTokens  GoogleToken[]
+  accounts     Account[]
+  sessions     Session[]
+  auditEntries AuditLog[]
+  googleTokens GoogleToken[]
 
-  uploadedDocuments      UploadedDocument[]
-  generatedDocuments     GeneratedDocument[]
-  transactionsCreated    Transaction[]        @relation("TransactionCreatedBy")
-  transactionsConfirmed  Transaction[]        @relation("TransactionConfirmedBy")
-  subscriptions          Subscription[]
+  uploadedDocuments     UploadedDocument[]
+  generatedDocuments    GeneratedDocument[]
+  transactionsCreated   Transaction[]       @relation("TransactionCreatedBy")
+  transactionsConfirmed Transaction[]       @relation("TransactionConfirmedBy")
+  subscriptions         Subscription[]
+
+  employeeProfile           EmployeeProfile?
+  leaveRequestsAsRequester  LeaveRequest[]   @relation("LeaveRequestedBy")
+  leaveRequestsAsApprover   LeaveRequest[]   @relation("LeaveApprovedBy")
+  leaveRequestsAsSubstitute LeaveRequest[]   @relation("LeaveRequestSubstitute")
 
   @@map("users")
 }
@@ -110,15 +115,15 @@ model GoogleToken {
 // code must never attempt to mutate a row here; only packages/core/src/audit
 // should insert into this table.
 model AuditLog {
-  id        String   @id @default(cuid())
-  actorId   String?
-  actorRole Role?
-  action    String
-  resource  String
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorRole  Role?
+  action     String
+  resource   String
   resourceId String?
-  ipAddress String?
-  metadata  Json?
-  createdAt DateTime @default(now())
+  ipAddress  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
 
   actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
 
@@ -183,9 +188,9 @@ model UploadedDocument {
 }
 
 model Transaction {
-  id             String              @id @default(cuid())
+  id             String               @id @default(cuid())
   type           TransactionType
-  status         TransactionStatus   @default(CONFIRMED)
+  status         TransactionStatus    @default(CONFIRMED)
   category       TransactionCategory?
   description    String?
   // ЕИК/Булстат + amounts are nullable because an upload-created
@@ -195,11 +200,11 @@ model Transaction {
   supplierTaxId  String?
   amountMinor    Int?
   vatAmountMinor Int?
-  currency       String              @default("BGN")
+  currency       String               @default("BGN")
   issueDate      DateTime?
 
   sourceDocumentId String?           @unique
-  sourceDocument    UploadedDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
+  sourceDocument   UploadedDocument? @relation(fields: [sourceDocumentId], references: [id], onDelete: SetNull)
 
   createdById   String
   createdBy     User      @relation("TransactionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
@@ -244,25 +249,154 @@ model DocumentSequence {
 }
 
 model Subscription {
-  id                  String    @id @default(cuid())
-  name                String
-  url                 String?
-  vendor              String?
-  feeAmountMinor      Int
-  currency            String
-  billingIntervalDays Int       @default(30)
-  renewsAt            DateTime
-  alertLeadDays       Int       @default(7)
+  id                     String    @id @default(cuid())
+  name                   String
+  url                    String?
+  vendor                 String?
+  feeAmountMinor         Int
+  currency               String
+  billingIntervalDays    Int       @default(30)
+  renewsAt               DateTime
+  alertLeadDays          Int       @default(7)
   // Idempotency guard for the daily renewal-scan job (FIN-7): set to the
   // `renewsAt` value the last alert was sent for, so a rerun of the scan
   // on the same day (or after a crash mid-scan) never double-sends.
   lastAlertedForRenewsAt DateTime?
-  unsubscribedAt      DateTime?
-  ownerId             String
-  owner               User      @relation(fields: [ownerId], references: [id], onDelete: Restrict)
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @updatedAt
+  unsubscribedAt         DateTime?
+  ownerId                String
+  owner                  User      @relation(fields: [ownerId], references: [id], onDelete: Restrict)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   @@index([renewsAt])
   @@map("subscriptions")
+}
+
+// HR — skills matrix + leave (Epic 04, HR-1/4/5). HR-2/3/7 (talent search,
+// client-safe CV export, portfolio) are Phase 2 and add their own models
+// later. HR-6 (auto Out-of-Office in Google Calendar on leave approval) is
+// deferred until Google OAuth/Calendar consent is available — see the
+// TODO(HR-6) in apps/web/src/app/(dashboard)/leave/actions.ts::approveLeaveRequest,
+// which is the seam a future epic plugs into without restructuring this schema.
+
+enum SkillCategory {
+  STACK
+  DOMAIN
+}
+
+enum ExpertiseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  EXPERT
+}
+
+enum LanguageProficiency {
+  BASIC
+  CONVERSATIONAL
+  FLUENT
+  NATIVE
+}
+
+model EmployeeProfile {
+  id        String   @id @default(cuid())
+  ownerId   String   @unique
+  owner     User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title     String?
+  bio       String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  skills    EmployeeSkill[]
+  languages EmployeeLanguage[]
+  projects  EmployeeProject[]
+
+  @@map("employee_profiles")
+}
+
+model EmployeeSkill {
+  id                String          @id @default(cuid())
+  employeeProfileId String
+  employeeProfile   EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
+  category          SkillCategory
+  name              String
+  level             ExpertiseLevel
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([employeeProfileId, category, name])
+  @@index([category, name])
+  @@map("employee_skills")
+}
+
+model EmployeeLanguage {
+  id                String              @id @default(cuid())
+  employeeProfileId String
+  employeeProfile   EmployeeProfile     @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
+  name              String
+  proficiency       LanguageProficiency
+  createdAt         DateTime            @default(now())
+
+  @@unique([employeeProfileId, name])
+  @@map("employee_languages")
+}
+
+model EmployeeProject {
+  id                String          @id @default(cuid())
+  employeeProfileId String
+  employeeProfile   EmployeeProfile @relation(fields: [employeeProfileId], references: [id], onDelete: Cascade)
+  name              String
+  role              String?
+  description       String?         @db.Text
+  startedAt         DateTime?
+  endedAt           DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([employeeProfileId])
+  @@map("employee_projects")
+}
+
+enum LeaveType {
+  PAID
+  UNPAID
+  SICK
+}
+
+// PENDING -> APPROVED | REJECTED | CANCELLED. Terminal states, no hard
+// deletes — matches the FIN convention of a terminal status enum (VOID)
+// over a soft-delete flag, so the request/decision trail stays intact.
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model LeaveRequest {
+  id        String      @id @default(cuid())
+  type      LeaveType
+  status    LeaveStatus @default(PENDING)
+  startDate DateTime
+  endDate   DateTime
+  reason    String?     @db.Text
+
+  substituteId String?
+  substitute   User?   @relation("LeaveRequestSubstitute", fields: [substituteId], references: [id], onDelete: SetNull)
+
+  requestedById String
+  requestedBy   User   @relation("LeaveRequestedBy", fields: [requestedById], references: [id], onDelete: Restrict)
+
+  approvedById String?
+  approvedBy   User?     @relation("LeaveApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  decidedAt    DateTime?
+  decisionNote String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([requestedById, status])
+  @@index([startDate, endDate])
+  @@map("leave_requests")
 }

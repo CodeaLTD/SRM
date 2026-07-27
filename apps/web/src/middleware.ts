@@ -14,11 +14,21 @@ const { auth } = NextAuth(authConfig);
  * route handler. Default-deny: an unlisted path under (dashboard) falls
  * through to "any authenticated role", not "any role including none."
  */
+// Order here is irrelevant — the most specific (longest) matching prefix
+// always wins (see the `.reduce` below), so a narrower sub-route like
+// "/leave/admin" is correctly gated independently of its broader parent
+// "/leave" no matter which one is listed first. Only ADMIN holds
+// leave:approve (packages/core/src/rbac.ts); without "/leave/admin" here,
+// ANALYST/SALES/USER would pass the coarse gate on /leave/admin* and only
+// get turned away by an unhandled ForbiddenError thrown inside the page's
+// assertCan, instead of a clean /403 redirect.
 const ROUTE_ROLE_REQUIREMENTS: { prefix: string; roles: Role[] }[] = [
   { prefix: "/finance", roles: ["ADMIN", "ANALYST"] },
   { prefix: "/crm", roles: ["ADMIN", "SALES"] },
   { prefix: "/hr", roles: ["ADMIN", "SALES", "USER"] },
   { prefix: "/osh", roles: ["ADMIN", "USER"] },
+  { prefix: "/leave/admin", roles: ["ADMIN"] },
+  { prefix: "/leave", roles: ["ADMIN", "ANALYST", "SALES", "USER"] },
 ];
 
 export default auth((req) => {
@@ -28,7 +38,8 @@ export default auth((req) => {
     pathname.startsWith("/communications") ||
     pathname.startsWith("/hr") ||
     pathname.startsWith("/osh") ||
-    pathname.startsWith("/crm");
+    pathname.startsWith("/crm") ||
+    pathname.startsWith("/leave");
 
   if (!isDashboardRoute) return NextResponse.next();
 
@@ -38,7 +49,13 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  const rule = ROUTE_ROLE_REQUIREMENTS.find((r) => pathname.startsWith(r.prefix));
+  const rule = ROUTE_ROLE_REQUIREMENTS
+    .filter((r) => pathname.startsWith(r.prefix))
+    .reduce<{ prefix: string; roles: Role[] } | undefined>(
+      (mostSpecific, candidate) =>
+        !mostSpecific || candidate.prefix.length > mostSpecific.prefix.length ? candidate : mostSpecific,
+      undefined,
+    );
   if (rule && !rule.roles.includes(req.auth.user.role)) {
     return NextResponse.redirect(new URL("/403", req.nextUrl.origin));
   }

@@ -109,4 +109,17 @@ describe("scopeToOwnerUnless", () => {
       ownerId: "user-1",
     });
   });
+
+  // HR-1: Sales can read the whole Skills Matrix but holds neither
+  // hr:cv:write:own nor hr:cv:write:any, so Sales is scoped to "own" for
+  // writes the same as a role with no elevated capability at all.
+  it("scopes Sales to its own CV for hr:cv:write:any (Sales has no write capability)", () => {
+    expect(scopeToOwnerUnless(Role.SALES, "hr:cv:write:any", "user-1")).toEqual({
+      ownerId: "user-1",
+    });
+  });
+
+  it("returns no filter for Admin on hr:cv:write:any", () => {
+    expect(scopeToOwnerUnless(Role.ADMIN, "hr:cv:write:any", "user-1")).toEqual({});
+  });
 });

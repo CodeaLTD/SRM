@@ -6,7 +6,7 @@
 | **Phase** | 1 (FIN-1…5) → 2 (FIN-6…7) |
 | **Priority** | Must (core) / Should (subscriptions) |
 | **Depends on** | `CORE` (RBAC, PDF service, job queue, OCR provider) |
-| **Status** | Not started |
+| **Status** | In progress |
 | **Owner** | PO + Eng |
 
 > Traceability: PRD §8 Module 1. Access: **Admin + Analyst** only (Sales/User have no finance access — PRD §6).
@@ -60,22 +60,22 @@ Turn finance from manual typing into an assisted, auditable flow. Two headline w
 ## 7. Delivery plan
 
 **Milestone 1.1 — Documents (FIN-1)**
-- [ ] HTML/CSS templates: receipt, advance report, proforma invoice.
-- [ ] Generate + download/store branded PDFs via `CORE` PDF service.
+- [x] HTML/CSS templates: receipt, advance report, proforma invoice.
+- [x] Generate + download/store branded PDFs via `CORE` PDF service.
 
 **Milestone 1.2 — Transactions (FIN-2)**
-- [ ] Income/expense data model + entry forms.
-- [ ] Auto-categorization rules.
+- [x] Income/expense data model + entry forms.
+- [x] Auto-categorization rules.
 
 **Milestone 1.3 — OCR intake (FIN-3/4/5)**
-- [ ] Upload (PDF/image) + OCR provider integration.
-- [ ] Field extraction → prefilled form; status **"За проверка"**.
-- [ ] Review/correct/confirm workflow (Admin/Analyst) → commit.
+- [ ] Upload (PDF/image) + OCR provider integration. *(upload flow + validation complete; OCR provider integration is a deliberate stub — `packages/core/src/finance/extraction.ts` `extractInvoiceFields()` always returns `{}`, pending OCR provider decision, §14 Q6)*
+- [ ] Field extraction → prefilled form; status **"За проверка"**. *(status/workflow wiring complete; no fields are ever pre-filled since extraction is stubbed — see above)*
+- [x] Review/correct/confirm workflow (Admin/Analyst) → commit.
 - [ ] Extraction-accuracy telemetry (feeds R1 tuning + G1).
 
 **Milestone 1.4 — Subscriptions (FIN-6/7, Phase 2)**
-- [ ] Subscription registry (name, URL, fee, currency, unsubscribe date).
-- [ ] Scheduled pre-renewal notifications (X-day lead) via job queue.
+- [x] Subscription registry (name, URL, fee, currency, unsubscribe date).
+- [x] Scheduled pre-renewal notifications (X-day lead) via job queue.
 
 ## 8. Success metrics
 - G1: ≥ 60% reduction in expense-entry time (measured in-form).
