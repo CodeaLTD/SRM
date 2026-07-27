@@ -43,6 +43,9 @@ describe("can — PRD §6 role matrix", () => {
     ["tasks:write", [Role.ADMIN, Role.ANALYST, Role.SALES, Role.USER]],
     // "Own leave" is a checkmark for every role.
     ["leave:request:own", [Role.ADMIN, Role.ANALYST, Role.SALES, Role.USER]],
+    // Analyst gets leave/sick reports for ТРЗ (read); Admin also has direct
+    // read access to the report view (separate from leave:approve).
+    ["leave:report:read", [Role.ADMIN, Role.ANALYST]],
   ])("%s is granted to exactly %j", (capability, expectedRoles) => {
     for (const role of Object.values(Role)) {
       expect(can(role, capability), `${role} x ${capability}`).toBe(
@@ -108,5 +111,18 @@ describe("scopeToOwnerUnless", () => {
     expect(scopeToOwnerUnless(Role.USER, "leave:approve", "user-1")).toEqual({
       ownerId: "user-1",
     });
+  });
+
+  // HR-1: Sales can read the whole Skills Matrix but holds neither
+  // hr:cv:write:own nor hr:cv:write:any, so Sales is scoped to "own" for
+  // writes the same as a role with no elevated capability at all.
+  it("scopes Sales to its own CV for hr:cv:write:any (Sales has no write capability)", () => {
+    expect(scopeToOwnerUnless(Role.SALES, "hr:cv:write:any", "user-1")).toEqual({
+      ownerId: "user-1",
+    });
+  });
+
+  it("returns no filter for Admin on hr:cv:write:any", () => {
+    expect(scopeToOwnerUnless(Role.ADMIN, "hr:cv:write:any", "user-1")).toEqual({});
   });
 });

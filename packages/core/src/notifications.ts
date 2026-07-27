@@ -28,3 +28,21 @@ export async function notify(input: NotifyInput): Promise<void> {
   // TODO(COMM): also insert an in-app Notification row once that model
   // exists in packages/db — deferred until the COMM epic starts.
 }
+
+/**
+ * Best-effort variant for callers where a failed send must not abort the
+ * surrounding action (e.g. a DB write/audit entry has already committed by
+ * the time this runs) — catches and logs instead of throwing. Returns
+ * whether the send succeeded so a caller that needs to branch on it (e.g.
+ * a retry-scan job skipping its "already alerted" bookkeeping on failure)
+ * still can, without every caller re-implementing its own try/catch.
+ */
+export async function notifySafely(input: NotifyInput): Promise<boolean> {
+  try {
+    await notify(input);
+    return true;
+  } catch (error) {
+    console.error(`[notify] failed to notify ${input.toEmail}`, error);
+    return false;
+  }
+}

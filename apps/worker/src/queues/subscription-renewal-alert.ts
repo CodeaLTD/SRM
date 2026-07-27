@@ -3,7 +3,7 @@ import {
   findDueSubscriptions,
   getQueue,
   getRedisConnection,
-  notify,
+  notifySafely,
   QueueName,
   rollRenewalForward,
 } from "@codea-srm/core";
@@ -39,21 +39,18 @@ export function startSubscriptionRenewalAlertWorker(): Worker {
       const due = findDueSubscriptions(activeSubscriptions, today);
 
       for (const subscription of due) {
-        try {
-          await notify({
-            userId: subscription.owner.id,
-            toEmail: subscription.owner.email,
-            subject: `Subscription renewing soon: ${subscription.name}`,
-            bodyHtml: `<p>Your subscription is renewing on ${subscription.renewsAt.toDateString()}.</p>`,
-          });
-        } catch (error) {
-          // Don't let one failed send (e.g. no mailbox token wired up yet)
-          // abort the rest of the scan — log and move on so every other
-          // due subscription still gets a chance, and so the rollover
-          // loop below still runs for subscriptions whose renewal passed.
-          console.error(`[subscription-renewal-alert] failed to notify for subscription ${subscription.id}`, error);
-          continue;
-        }
+        // notifySafely already catches and logs — a failed send (e.g. no
+        // mailbox token wired up yet) must not abort the rest of the scan,
+        // and we skip the "already alerted" bookkeeping below so a failed
+        // send gets retried on the next day's scan instead of being
+        // silently marked as delivered.
+        const sent = await notifySafely({
+          userId: subscription.owner.id,
+          toEmail: subscription.owner.email,
+          subject: `Subscription renewing soon: ${subscription.name}`,
+          bodyHtml: `<p>Your subscription is renewing on ${subscription.renewsAt.toDateString()}.</p>`,
+        });
+        if (!sent) continue;
 
         await prisma.subscription.update({
           where: { id: subscription.id },

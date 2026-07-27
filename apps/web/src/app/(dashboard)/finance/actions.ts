@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
 import {
   assertCan,
   assertValidSupplierInvoiceFile,
@@ -18,13 +17,8 @@ import {
   type ReceiptLineItem,
 } from "@codea-srm/core";
 import { prisma, TransactionStatus, TransactionType, type DocumentType, type Role } from "@codea-srm/db";
+import { requireSession } from "../_lib/session";
 import { parseMinorAmount } from "./_lib/money";
-
-async function requireSession(): Promise<{ userId: string; role: Role; email: string }> {
-  const session = await auth();
-  if (!session?.user) redirect("/login");
-  return { userId: session.user.id, role: session.user.role, email: session.user.email ?? "" };
-}
 
 // ---- Transactions (FIN-2, FIN-4/5 shell) -----------------------------
 

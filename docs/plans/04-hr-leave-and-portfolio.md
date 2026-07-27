@@ -6,7 +6,7 @@
 | **Phase** | 1 (HR-1, HR-4…6) → 2 (HR-2, HR-3, HR-7) |
 | **Priority** | Must (leave core, skills matrix) / Should (search, CV export, portfolio) |
 | **Depends on** | `CORE` (RBAC, PDF export, Calendar OOO, audit log) |
-| **Status** | Not started |
+| **Status** | In progress |
 | **Owner** | PO + Eng |
 
 > Traceability: PRD §8 Module 4. Access: Skills/Portfolio → **Admin + Sales** (offer prep); leave → all users request, **Admin approves**; Analyst gets leave/sick reports for ТРЗ (read).
@@ -59,14 +59,14 @@ Turn tribal HR knowledge into a searchable asset and make leave a clean, auditab
 ## 7. Delivery plan
 
 **Milestone 4.1 — Skills Matrix (HR-1)**
-- [ ] Employee profile model (stack, languages, expertise, projects).
-- [ ] Self-edit for own profile; Admin/Sales read per RBAC.
+- [x] Employee profile model (stack, languages, expertise, projects).
+- [x] Self-edit for own profile; Admin/Sales read per RBAC.
 
 **Milestone 4.2 — Leave workflow (HR-4/5/6)**
-- [ ] Leave request form (type, period, substitute).
-- [ ] Admin approval flow (audit-logged).
-- [ ] OOO calendar event on approval; task-assignment guard.
-- [ ] Leave/sick report for Analyst (ТРЗ, read).
+- [x] Leave request form (type, period, substitute).
+- [x] Admin approval flow (audit-logged).
+- [ ] OOO calendar event on approval; task-assignment guard. *(deferred — no Google Calendar OAuth available yet; `approveLeaveRequest` in `apps/web/src/app/(dashboard)/leave/actions.ts` has a `TODO(HR-6)` seam pointing at the existing `upsertCalendarEvent` helper in `packages/core/src/google/calendar.ts`, and `packages/core/src/hr/leave-period.ts`'s `overlapsExistingLeave` is already written to be reusable by the future TASK-3 assignment guard)*
+- [x] Leave/sick report for Analyst (ТРЗ, read). Read-only `/leave/report` page (Admin + Analyst, new `leave:report:read` capability), optional type filter, no write access.
 
 **Milestone 4.3 — Talent tooling (HR-2/3, Phase 2)**
 - [ ] Search people by technology/skill.
