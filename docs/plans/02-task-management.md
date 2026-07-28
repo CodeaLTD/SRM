@@ -6,7 +6,7 @@
 | **Phase** | 1 |
 | **Priority** | Must |
 | **Depends on** | `CORE` (RBAC, Google Calendar via OAuth) |
-| **Status** | Not started |
+| **Status** | In progress (Milestone 2.1 done, Google-free) |
 | **Owner** | PO + Eng |
 
 > Traceability: PRD §8 Module 2. Everyone has access to their own tasks; visibility follows RBAC.
@@ -43,8 +43,8 @@ Move operational work out of chat threads and into a shared, visual board where 
   - Given a task with assignees and a deadline, setting/changing the deadline creates/updates a calendar event for each assignee; changing the assignee set adds/removes events accordingly; removing the deadline removes the events.
 
 ## 5. Dependencies
-- `CORE`: Google Calendar write access (OAuth), RBAC, notification service.
-- Interacts with `HR` leave (HR-6): assigning tasks to someone marked Out of Office should warn.
+- `CORE`: Google Calendar write access (OAuth) — needed only for Milestone 2.2; RBAC, notification service — already available and in use by Milestone 2.1.
+- Interacts with `HR` leave (HR-6): assigning tasks to someone marked Out of Office should warn. *(implemented — `checkLeaveOverlapWarning` in `apps/web/src/app/(dashboard)/tasks/actions.ts` reuses `overlapsExistingLeave` from `packages/core/src/hr/leave-period.ts`, exactly the reuse that function's doc comment anticipated; fires a non-blocking warning banner, not a hard block, on task create/edit/assignee-set when a deadline falls inside an assignee's pending/approved leave)*
 
 ## 6. Technical notes
 - Calendar event lifecycle must stay idempotent and in sync with task edits (reuse `CORE` job/integration layer).
@@ -52,9 +52,9 @@ Move operational work out of chat threads and into a shared, visual board where 
 ## 7. Delivery plan
 
 **Milestone 2.1 — Board core (TASK-1/2)**
-- [ ] Task model (status, assignees[], deadline).
-- [ ] Kanban + list views; status transitions.
-- [ ] Multi-assignee UI.
+- [x] Task model (status, assignees[], deadline). `Task`/`TaskAssignee` models, first many-to-many in the schema (explicit join table, not implicit Prisma m:n, to stay consistent with the rest of the schema's audit-friendly, id+timestamped-row style).
+- [x] Kanban + list views; status transitions. Board (`/tasks`, 3 columns, button-forms — no drag-and-drop, since this app has no client components anywhere yet) and a separate list view (`/tasks/list`).
+- [x] Multi-assignee UI. Checkbox-based assignee selection on task creation (`/tasks/new`) and editing (`/tasks/[id]/edit`).
 
 **Milestone 2.2 — Calendar sync (TASK-3)**
 - [ ] Create calendar event on deadline set.

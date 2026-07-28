@@ -46,6 +46,9 @@ model User {
   leaveRequestsAsApprover   LeaveRequest[]   @relation("LeaveApprovedBy")
   leaveRequestsAsSubstitute LeaveRequest[]   @relation("LeaveRequestSubstitute")
 
+  tasksCreated    Task[]         @relation("TaskCreatedBy")
+  taskAssignments TaskAssignee[] @relation("TaskAssignedTo")
+
   @@map("users")
 }
 
@@ -399,4 +402,56 @@ model LeaveRequest {
   @@index([requestedById, status])
   @@index([startDate, endDate])
   @@map("leave_requests")
+}
+
+// TASK — Kanban/list board + multi-assignee (Epic 02, TASK-1/2). TASK-3
+// (auto Google Calendar event per assignee deadline) is a separate,
+// not-yet-started milestone — no seam needed here, unlike HR-6's TODO.
+// tasks:read/tasks:write are already granted to every Role (packages/core/src/rbac.ts),
+// so visibility isn't capability-gated — it's query-scoped to creator OR
+// assignee (see apps/web/src/app/(dashboard)/tasks/_lib/visibility.ts).
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?    @db.Text
+  status      TaskStatus @default(TODO)
+  deadline    DateTime?
+
+  createdById String
+  createdBy   User   @relation("TaskCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  assignees TaskAssignee[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdById])
+  @@index([deadline])
+  @@map("tasks")
+}
+
+// First many-to-many in this schema (Task <-> User). An explicit join
+// table — not Prisma's implicit scalar-array m:n — to stay consistent with
+// this schema's style of every row having its own id/timestamps and being
+// a first-class audit-friendly entity (mirrors EmployeeSkill/EmployeeProject).
+model TaskAssignee {
+  id     String @id @default(cuid())
+  taskId String
+  task   Task   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation("TaskAssignedTo", fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([taskId, userId])
+  @@index([userId])
+  @@map("task_assignees")
 }
