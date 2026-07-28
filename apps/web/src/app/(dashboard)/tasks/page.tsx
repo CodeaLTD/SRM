@@ -64,6 +64,8 @@ export default async function TasksPage({ searchParams }: { searchParams: Promis
         <Link href="/tasks/new">New task</Link>
         {" · "}
         <Link href="/tasks/list">List view</Link>
+        {" · "}
+        <Link href="/settings/google">Google Calendar settings</Link>
       </p>
       <div style={{ display: "flex", gap: "1rem" }}>
         {columns.map((column) => (

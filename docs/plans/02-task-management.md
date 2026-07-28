@@ -6,7 +6,7 @@
 | **Phase** | 1 |
 | **Priority** | Must |
 | **Depends on** | `CORE` (RBAC, Google Calendar via OAuth) |
-| **Status** | In progress (Milestone 2.1 done, Google-free) |
+| **Status** | Done (Milestones 2.1 and 2.2 complete) |
 | **Owner** | PO + Eng |
 
 > Traceability: PRD §8 Module 2. Everyone has access to their own tasks; visibility follows RBAC.
@@ -43,8 +43,8 @@ Move operational work out of chat threads and into a shared, visual board where 
   - Given a task with assignees and a deadline, setting/changing the deadline creates/updates a calendar event for each assignee; changing the assignee set adds/removes events accordingly; removing the deadline removes the events.
 
 ## 5. Dependencies
-- `CORE`: Google Calendar write access (OAuth) — needed only for Milestone 2.2; RBAC, notification service — already available and in use by Milestone 2.1.
-- Interacts with `HR` leave (HR-6): assigning tasks to someone marked Out of Office should warn. *(implemented — `checkLeaveOverlapWarning` in `apps/web/src/app/(dashboard)/tasks/actions.ts` reuses `overlapsExistingLeave` from `packages/core/src/hr/leave-period.ts`, exactly the reuse that function's doc comment anticipated; fires a non-blocking warning banner, not a hard block, on task create/edit/assignee-set when a deadline falls inside an assignee's pending/approved leave)*
+- `CORE`: Google Calendar write access (OAuth) — *(implemented — real OAuth credentials in `.env`, consent flow at `/api/google/connect` + `/api/google/callback`, encrypted token storage in `packages/core/src/google/token-store.ts`/`token-crypto.ts`, connect/disconnect UI at `/settings/google`. This same plumbing is what HR-6's and OSH-4's own `TODO` seams are waiting on — they can hook in without rebuilding any of this.)*
+- Interacts with `HR` leave (HR-6): assigning tasks to someone marked Out of Office should warn. *(implemented — `checkLeaveOverlapWarnings` in `apps/web/src/app/(dashboard)/tasks/actions.ts` reuses `overlapsExistingLeave` from `packages/core/src/hr/leave-period.ts`, exactly the reuse that function's doc comment anticipated; fires a non-blocking warning banner, not a hard block, on task create/edit/assignee-set when a deadline falls inside an assignee's pending/approved leave)*
 
 ## 6. Technical notes
 - Calendar event lifecycle must stay idempotent and in sync with task edits (reuse `CORE` job/integration layer).
@@ -57,9 +57,9 @@ Move operational work out of chat threads and into a shared, visual board where 
 - [x] Multi-assignee UI. Checkbox-based assignee selection on task creation (`/tasks/new`) and editing (`/tasks/[id]/edit`).
 
 **Milestone 2.2 — Calendar sync (TASK-3)**
-- [ ] Create calendar event on deadline set.
-- [ ] Sync on assignee/deadline change; clean up on removal.
-- [ ] Cross-check with leave/OOO (coordinate with `HR`).
+- [x] Create calendar event on deadline set. Per-assignee, date-only deadlines become full-day events (`taskDeadlineToEventWindow` in `packages/core/src/tasks/status.ts`); best-effort — an assignee who hasn't connected Calendar is silently skipped, not blocked or warned.
+- [x] Sync on assignee/deadline change; clean up on removal. `syncAssigneeCalendarEvents` in `tasks/actions.ts` upserts/removes per assignee, storing each event id on `TaskAssignee.calendarEventId` so edits update the same event instead of duplicating; deleting a task or removing an assignee removes their event.
+- [x] Cross-check with leave/OOO (coordinate with `HR`). Already covered by Milestone 2.1's `checkLeaveOverlapWarnings` — unchanged by this milestone.
 
 ## 8. Success metrics
 - Contributes to G5 (≥ 80% WAU): board is the daily entry point.

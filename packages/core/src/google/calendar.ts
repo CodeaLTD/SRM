@@ -50,3 +50,28 @@ export async function deleteCalendarEvent(refreshToken: string, eventId: string)
   const calendar = google.calendar({ version: "v3", auth });
   await calendar.events.delete({ calendarId: "primary", eventId });
 }
+
+/**
+ * Best-effort variants (mirrors notify/notifySafely) — a Calendar API
+ * hiccup (expired grant, transient API error) must never abort the
+ * surrounding task/leave/OSH mutation. Returns null/false on failure
+ * instead of throwing, and logs so the failure isn't silently lost.
+ */
+export async function upsertCalendarEventSafely(input: CalendarEventInput): Promise<string | null> {
+  try {
+    return await upsertCalendarEvent(input);
+  } catch (error) {
+    console.error(`[calendar] failed to upsert event "${input.summary}"`, error);
+    return null;
+  }
+}
+
+export async function deleteCalendarEventSafely(refreshToken: string, eventId: string): Promise<boolean> {
+  try {
+    await deleteCalendarEvent(refreshToken, eventId);
+    return true;
+  } catch (error) {
+    console.error(`[calendar] failed to delete event ${eventId}`, error);
+    return false;
+  }
+}

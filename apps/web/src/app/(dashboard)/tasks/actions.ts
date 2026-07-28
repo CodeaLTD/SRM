@@ -5,11 +5,16 @@ import { redirect } from "next/navigation";
 import {
   assertCan,
   can,
+  deleteCalendarEventSafely,
   ForbiddenError,
+  getGoogleRefreshTokens,
+  GOOGLE_SCOPES,
   isValidTaskStatusTransition,
   notifySafely,
   overlapsExistingLeave,
   recordAuditEntry,
+  taskDeadlineToEventWindow,
+  upsertCalendarEventSafely,
   type TaskStatusValue,
 } from "@codea-srm/core";
 import { LeaveStatus, prisma, TaskStatus, type Role, type Task } from "@codea-srm/db";
@@ -113,7 +118,71 @@ async function notifyAssignees(assigneeIds: string[], taskTitle: string): Promis
   );
 }
 
-// ---- Tasks (TASK-1/2) -----------------------------------------------------
+interface CalendarSyncTarget {
+  taskAssigneeId: string;
+  userId: string;
+  existingEventId: string | null;
+}
+
+/**
+ * TASK-3: creates/updates/removes each assignee's copy of the deadline on
+ * their own Google Calendar. Best-effort — an assignee who hasn't
+ * connected Calendar (packages/core/src/google/token-store.ts) is silently
+ * skipped, not warned about; a warning is only surfaced when a token
+ * exists but the Calendar API call itself failed. Token lookups are
+ * batched (getGoogleRefreshTokens) across every involved assignee in one
+ * query, same N+1 lesson as notifyAssignees/checkLeaveOverlapWarnings.
+ */
+async function syncAssigneeCalendarEvents(
+  task: { title: string; description: string | null; deadline: Date | null },
+  targets: { upsert: CalendarSyncTarget[]; remove: CalendarSyncTarget[] },
+): Promise<(string | null)[]> {
+  const removeTargets = targets.remove.filter((target) => target.existingEventId);
+  if (targets.upsert.length === 0 && removeTargets.length === 0) return [];
+
+  const involvedUserIds = [...new Set([...targets.upsert.map((t) => t.userId), ...removeTargets.map((t) => t.userId)])];
+  const tokens = await getGoogleRefreshTokens(involvedUserIds, GOOGLE_SCOPES.CALENDAR_EVENTS);
+  const warnings: (string | null)[] = [];
+
+  if (targets.upsert.length > 0 && task.deadline) {
+    const { startIso, endIso } = taskDeadlineToEventWindow(task.deadline);
+    await Promise.all(
+      targets.upsert.map(async (target) => {
+        const refreshToken = tokens.get(target.userId);
+        if (!refreshToken) return;
+        const eventId = await upsertCalendarEventSafely({
+          refreshToken,
+          summary: task.title,
+          description: task.description ?? undefined,
+          startIso,
+          endIso,
+          eventId: target.existingEventId ?? undefined,
+        });
+        if (eventId) {
+          await prisma.taskAssignee.updateMany({ where: { id: target.taskAssigneeId }, data: { calendarEventId: eventId } });
+        } else {
+          warnings.push("Couldn't sync a calendar event for one of the assignees");
+        }
+      }),
+    );
+  }
+
+  await Promise.all(
+    removeTargets.map(async (target) => {
+      const refreshToken = tokens.get(target.userId);
+      if (!refreshToken) return;
+      const success = await deleteCalendarEventSafely(refreshToken, target.existingEventId!);
+      await prisma.taskAssignee.updateMany({ where: { id: target.taskAssigneeId }, data: { calendarEventId: null } });
+      if (!success) {
+        warnings.push("Couldn't remove a calendar event for one of the assignees");
+      }
+    }),
+  );
+
+  return warnings;
+}
+
+// ---- Tasks (TASK-1/2/3) ----------------------------------------------------
 
 export async function createTask(formData: FormData): Promise<void> {
   const { userId, role } = await requireSession();
@@ -136,18 +205,26 @@ export async function createTask(formData: FormData): Promise<void> {
       createdById: userId,
       assignees: { create: assigneeIds.map((assigneeId) => ({ userId: assigneeId })) },
     },
+    include: { assignees: true },
   });
 
   await recordAuditEntry({ actorId: userId, actorRole: role, action: "task.create", resource: "Task", resourceId: task.id });
 
-  const warnings = deadline ? await checkLeaveOverlapWarnings(assigneeIds, deadline, { id: userId, role }) : [];
+  const leaveWarnings = deadline ? await checkLeaveOverlapWarnings(assigneeIds, deadline, { id: userId, role }) : [];
+  const calendarWarnings = await syncAssigneeCalendarEvents(
+    { title, description, deadline },
+    {
+      upsert: task.assignees.map((assignee) => ({ taskAssigneeId: assignee.id, userId: assignee.userId, existingEventId: null })),
+      remove: [],
+    },
+  );
 
   await notifyAssignees(assigneeIds, title);
 
   revalidatePath("/tasks");
   revalidatePath("/tasks/list");
   revalidatePath(`/tasks/${task.id}`);
-  redirectWithWarnings(`/tasks/${task.id}`, warnings);
+  redirectWithWarnings(`/tasks/${task.id}`, [...leaveWarnings, ...calendarWarnings]);
 }
 
 export async function updateTaskStatus(taskId: string, formData: FormData): Promise<void> {
@@ -198,13 +275,20 @@ export async function updateTaskDetails(taskId: string, formData: FormData): Pro
 
   let warnings: (string | null)[] = [];
   const deadlineChanged = (task.deadline?.getTime() ?? null) !== (deadline?.getTime() ?? null);
-  if (deadlineChanged && deadline) {
+  if (deadlineChanged) {
     const assignees = await prisma.taskAssignee.findMany({ where: { taskId } });
-    warnings = await checkLeaveOverlapWarnings(
-      assignees.map((assignee) => assignee.userId),
-      deadline,
-      { id: userId, role },
+    const targets = assignees.map((assignee) => ({
+      taskAssigneeId: assignee.id,
+      userId: assignee.userId,
+      existingEventId: assignee.calendarEventId,
+    }));
+
+    const leaveWarnings = deadline ? await checkLeaveOverlapWarnings(targets.map((t) => t.userId), deadline, { id: userId, role }) : [];
+    const calendarWarnings = await syncAssigneeCalendarEvents(
+      { title, description, deadline },
+      { upsert: deadline ? targets : [], remove: deadline ? [] : targets },
     );
+    warnings = [...leaveWarnings, ...calendarWarnings];
   }
 
   revalidatePath("/tasks");
@@ -224,6 +308,10 @@ export async function setTaskAssignees(taskId: string, formData: FormData): Prom
   const toAdd = [...desiredIds].filter((id) => !currentIds.has(id));
   const toRemove = [...currentIds].filter((id) => !desiredIds.has(id));
 
+  const removeCalendarTargets = current
+    .filter((assignee) => toRemove.includes(assignee.userId))
+    .map((assignee) => ({ taskAssigneeId: assignee.id, userId: assignee.userId, existingEventId: assignee.calendarEventId }));
+
   await prisma.$transaction([
     prisma.taskAssignee.deleteMany({ where: { taskId, task: { createdById: userId }, userId: { in: toRemove } } }),
     prisma.taskAssignee.createMany({ data: toAdd.map((assigneeId) => ({ taskId, userId: assigneeId })) }),
@@ -238,25 +326,50 @@ export async function setTaskAssignees(taskId: string, formData: FormData): Prom
     metadata: { added: toAdd, removed: toRemove },
   });
 
-  const warnings = task.deadline
+  const leaveWarnings = task.deadline
     ? await checkLeaveOverlapWarnings(toAdd, task.deadline, { id: userId, role })
     : [];
+
+  const newlyAddedAssignees = toAdd.length > 0
+    ? await prisma.taskAssignee.findMany({ where: { taskId, userId: { in: toAdd } } })
+    : [];
+  const calendarWarnings = await syncAssigneeCalendarEvents(
+    { title: task.title, description: task.description, deadline: task.deadline },
+    {
+      upsert: newlyAddedAssignees.map((assignee) => ({ taskAssigneeId: assignee.id, userId: assignee.userId, existingEventId: null })),
+      remove: removeCalendarTargets,
+    },
+  );
 
   await notifyAssignees(toAdd, task.title);
 
   revalidatePath("/tasks");
   revalidatePath("/tasks/list");
   revalidatePath(`/tasks/${taskId}`);
-  redirectWithWarnings(`/tasks/${taskId}`, warnings);
+  redirectWithWarnings(`/tasks/${taskId}`, [...leaveWarnings, ...calendarWarnings]);
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
   const { userId, role } = await requireSession();
 
+  const assigneesBeforeDelete = await prisma.taskAssignee.findMany({ where: { taskId } });
+
   const result = await prisma.task.deleteMany({ where: { id: taskId, createdById: userId } });
   assertMutatedOne(result.count);
 
   await recordAuditEntry({ actorId: userId, actorRole: role, action: "task.delete", resource: "Task", resourceId: taskId });
+
+  await syncAssigneeCalendarEvents(
+    { title: "", description: null, deadline: null },
+    {
+      upsert: [],
+      remove: assigneesBeforeDelete.map((assignee) => ({
+        taskAssigneeId: assignee.id,
+        userId: assignee.userId,
+        existingEventId: assignee.calendarEventId,
+      })),
+    },
+  );
 
   revalidatePath("/tasks");
   revalidatePath("/tasks/list");

@@ -40,7 +40,8 @@ export default auth((req) => {
     pathname.startsWith("/hr") ||
     pathname.startsWith("/osh") ||
     pathname.startsWith("/crm") ||
-    pathname.startsWith("/leave");
+    pathname.startsWith("/leave") ||
+    pathname.startsWith("/settings");
 
   if (!isDashboardRoute) return NextResponse.next();
 

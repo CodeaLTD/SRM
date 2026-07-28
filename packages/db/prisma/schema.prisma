@@ -449,6 +449,12 @@ model TaskAssignee {
   userId String
   user   User   @relation("TaskAssignedTo", fields: [userId], references: [id], onDelete: Cascade)
 
+  // TASK-3: Google Calendar event id for this assignee's copy of the
+  // deadline, if they've connected Calendar and a sync has succeeded.
+  // Passed back into upsertCalendarEvent on later syncs so edits update
+  // the same event instead of creating duplicates.
+  calendarEventId String?
+
   createdAt DateTime @default(now())
 
   @@unique([taskId, userId])

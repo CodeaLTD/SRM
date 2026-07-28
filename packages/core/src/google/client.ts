@@ -8,13 +8,23 @@ import { google } from "googleapis";
  * apps/web's Google connection flow, not here.
  */
 export function createGoogleClient(refreshToken: string): InstanceType<typeof google.auth.OAuth2> {
-  const client = new google.auth.OAuth2(
+  const client = createGoogleAuthClient();
+  client.setCredentials({ refresh_token: refreshToken });
+  return client;
+}
+
+/**
+ * A bare OAuth2 client with no credentials set — used for the consent-URL
+ * and code-exchange steps of the connection flow (apps/web's
+ * /api/google/connect and /api/google/callback), before any refresh token
+ * exists yet. `createGoogleClient` above is for already-connected calls.
+ */
+export function createGoogleAuthClient(): InstanceType<typeof google.auth.OAuth2> {
+  return new google.auth.OAuth2(
     process.env.GOOGLE_OAUTH_CLIENT_ID,
     process.env.GOOGLE_OAUTH_CLIENT_SECRET,
     process.env.GOOGLE_OAUTH_REDIRECT_URI,
   );
-  client.setCredentials({ refresh_token: refreshToken });
-  return client;
 }
 
 export const GOOGLE_SCOPES = {
