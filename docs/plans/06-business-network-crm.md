@@ -54,7 +54,7 @@ Capture strategic relationships as company knowledge instead of letting them liv
 - [x] Fields: names, position/company, phone/email/LinkedIn, notes. `apps/web/src/app/(dashboard)/crm/{new,[id],[id]/edit}/page.tsx`.
 
 **Milestone 6.2 — Strategic importance (CRM-3)**
-- [x] Importance tags/field + filtering/sorting. Went with tags (native Postgres `String[]` column, not a separate join table — see schema comment). Filterable via `/crm?tag=`; `packages/core/src/crm/tags.ts` parses the comma-separated input.
+- [x] Importance tags/field + filtering/sorting. Went with tags (native Postgres `String[]` column, not a separate join table — see schema comment). Filterable via `/crm?tag=`; `packages/core/src/crm/tags.ts` parses the comma-separated input (case-insensitive dedup; a tag itself can't contain a comma, no escape syntax). Sortable by name or company via `/crm?sort=`.
 
 ## 8. Success metrics
 - Adoption by Sales (contacts created/updated per month).

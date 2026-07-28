@@ -279,7 +279,7 @@ model Contact {
   phone       String?
   email       String?
   linkedInUrl String?
-  notes       String?  @db.Text
+  notes       String?
   // Free-form "strategic importance" labels (CRM-3) — a native array
   // rather than a separate Tag/ContactTagAssignment join-table pair, since
   // these are ad hoc labels ("key software-services client"), not a fixed

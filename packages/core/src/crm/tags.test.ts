@@ -14,8 +14,9 @@ describe("parseTags", () => {
     expect(parseTags("key client,,  ,vendor")).toEqual(["key client", "vendor"]);
   });
 
-  it("dedupes exact-match repeats", () => {
-    expect(parseTags("vendor, vendor, Vendor")).toEqual(["vendor", "Vendor"]);
+  it("dedupes case-insensitively, keeping the first-seen casing", () => {
+    expect(parseTags("vendor, vendor, Vendor")).toEqual(["vendor"]);
+    expect(parseTags("Vendor, vendor")).toEqual(["Vendor"]);
   });
 
   it("returns an empty array for blank input", () => {

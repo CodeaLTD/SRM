@@ -1,8 +1,9 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { assertCan } from "@codea-srm/core";
 import { prisma } from "@codea-srm/db";
-import { deleteContact, updateContact } from "../../actions";
+import { updateContact } from "../../actions";
 
 export default async function EditContactPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -13,7 +14,6 @@ export default async function EditContactPage({ params }: { params: Promise<{ id
   if (!contact) notFound();
 
   const boundUpdate = updateContact.bind(null, contact.id);
-  const boundDelete = deleteContact.bind(null, contact.id);
 
   return (
     <section>
@@ -63,16 +63,16 @@ export default async function EditContactPage({ params }: { params: Promise<{ id
         </div>
         <div>
           <label>
-            Tags (comma-separated)
+            Tags (comma-separated — a tag itself can&apos;t contain a comma)
             <input name="tags" defaultValue={contact.tags.join(", ")} />
           </label>
         </div>
         <button type="submit">Save changes</button>
       </form>
 
-      <form action={boundDelete}>
-        <button type="submit">Delete contact</button>
-      </form>
+      <p>
+        <Link href={`/crm/${contact.id}/delete`}>Delete contact</Link>
+      </p>
     </section>
   );
 }

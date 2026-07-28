@@ -54,7 +54,7 @@ export default async function NewContactPage() {
         </div>
         <div>
           <label>
-            Tags (comma-separated)
+            Tags (comma-separated — a tag itself can&apos;t contain a comma)
             <input name="tags" placeholder="key client, potential partner" />
           </label>
         </div>

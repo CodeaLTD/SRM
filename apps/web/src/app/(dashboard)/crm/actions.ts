@@ -12,12 +12,7 @@ async function requireSession(): Promise<{ userId: string; role: Role; email: st
   return { userId: session.user.id, role: session.user.role, email: session.user.email ?? "" };
 }
 
-/** Throws when a deleteMany/updateMany affected zero rows — the id didn't exist. */
-function assertMutatedOne(count: number, message: string): void {
-  if (count === 0) {
-    throw new Error(message);
-  }
-}
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 interface ContactFields {
   fullName: string;
@@ -35,12 +30,16 @@ function readContactFields(formData: FormData): ContactFields {
   if (!fullName) {
     throw new Error("Full name is required");
   }
+  const email = (formData.get("email") as string)?.trim() || null;
+  if (email && !EMAIL_PATTERN.test(email)) {
+    throw new Error("Email address is not valid");
+  }
   return {
     fullName,
     position: (formData.get("position") as string)?.trim() || null,
     company: (formData.get("company") as string)?.trim() || null,
     phone: (formData.get("phone") as string)?.trim() || null,
-    email: (formData.get("email") as string)?.trim() || null,
+    email,
     linkedInUrl: (formData.get("linkedInUrl") as string)?.trim() || null,
     notes: (formData.get("notes") as string)?.trim() || null,
     tags: parseTags((formData.get("tags") as string) ?? ""),
@@ -77,8 +76,10 @@ export async function updateContact(id: string, formData: FormData): Promise<voi
 
   const fields = readContactFields(formData);
 
-  const result = await prisma.contact.updateMany({ where: { id }, data: fields });
-  assertMutatedOne(result.count, "Contact not found");
+  // Matches finance/actions.ts's convention: a plain update() by unique id,
+  // letting Prisma's own not-found error propagate rather than a bespoke
+  // updateMany+count-check.
+  await prisma.contact.update({ where: { id }, data: fields });
 
   await recordAuditEntry({
     actorId: userId,
@@ -97,8 +98,7 @@ export async function deleteContact(id: string): Promise<void> {
   const { userId, role } = await requireSession();
   assertCan(role, "crm:write");
 
-  const result = await prisma.contact.deleteMany({ where: { id } });
-  assertMutatedOne(result.count, "Contact not found");
+  await prisma.contact.delete({ where: { id } });
 
   await recordAuditEntry({
     actorId: userId,
