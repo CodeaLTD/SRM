@@ -6,7 +6,7 @@
 | **Phase** | 2 |
 | **Priority** | Should |
 | **Depends on** | `CORE` (RBAC) |
-| **Status** | Not started |
+| **Status** | Done |
 | **Owner** | PO + Eng |
 
 > Traceability: PRD §8 Module 6. Access: **Admin + Sales** only (Analyst/User have no access — PRD §6).
@@ -50,11 +50,11 @@ Capture strategic relationships as company knowledge instead of letting them liv
 ## 7. Delivery plan
 
 **Milestone 6.1 — Contacts (CRM-1/2)**
-- [ ] Contact model + CRUD; RBAC (Admin/Sales).
-- [ ] Fields: names, position/company, phone/email/LinkedIn, notes.
+- [x] Contact model + CRUD; RBAC (Admin/Sales). `Contact` model in `packages/db/prisma/schema.prisma`; `crm:read`/`crm:write` already gated to ADMIN+SALES (pre-existing). No per-user ownership scoping — the whole list is shared company knowledge, unlike Task/Leave/HR.
+- [x] Fields: names, position/company, phone/email/LinkedIn, notes. `apps/web/src/app/(dashboard)/crm/{new,[id],[id]/edit}/page.tsx`.
 
 **Milestone 6.2 — Strategic importance (CRM-3)**
-- [ ] Importance tags/field + filtering/sorting.
+- [x] Importance tags/field + filtering/sorting. Went with tags (native Postgres `String[]` column, not a separate join table — see schema comment). Filterable via `/crm?tag=`; `packages/core/src/crm/tags.ts` parses the comma-separated input.
 
 ## 8. Success metrics
 - Adoption by Sales (contacts created/updated per month).

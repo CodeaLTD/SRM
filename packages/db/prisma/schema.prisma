@@ -40,6 +40,7 @@ model User {
   transactionsCreated    Transaction[]        @relation("TransactionCreatedBy")
   transactionsConfirmed  Transaction[]        @relation("TransactionConfirmedBy")
   subscriptions          Subscription[]
+  contactsCreated        Contact[]            @relation("ContactCreatedBy")
 
   @@map("users")
 }
@@ -265,4 +266,32 @@ model Subscription {
 
   @@index([renewsAt])
   @@map("subscriptions")
+}
+
+// CRM — Business Network (Epic 06). Admin + Sales share one company-wide
+// contact list (no per-user ownership scoping, unlike Task/Leave/HR) —
+// once past crm:read/crm:write, any holder can see or edit any contact.
+model Contact {
+  id          String   @id @default(cuid())
+  fullName    String
+  position    String?
+  company     String?
+  phone       String?
+  email       String?
+  linkedInUrl String?
+  notes       String?  @db.Text
+  // Free-form "strategic importance" labels (CRM-3) — a native array
+  // rather than a separate Tag/ContactTagAssignment join-table pair, since
+  // these are ad hoc labels ("key software-services client"), not a fixed
+  // master list needing their own metadata.
+  tags        String[] @default([])
+
+  createdById String
+  createdBy   User     @relation("ContactCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdById])
+  @@map("contacts")
 }
