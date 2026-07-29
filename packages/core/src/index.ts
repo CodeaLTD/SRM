@@ -16,3 +16,7 @@ export * from "./finance/categorization";
 export * from "./finance/extraction";
 export * from "./finance/subscription-renewal";
 export * from "./finance/upload-validation";
+export * from "./documents/instruction-declaration-template";
+export * from "./osh/schedule";
+export * from "./osh/deadline-scan";
+export * from "./http";

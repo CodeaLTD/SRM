@@ -14,6 +14,19 @@ import path from "node:path";
 
 export type StorageCategory = "uploads" | "generated";
 
+/**
+ * Hard ceiling enforced regardless of caller — a backstop for the case
+ * where a future upload path forgets to call its own module-specific
+ * size/MIME guard (e.g. assertValidSupplierInvoiceFile) before reaching
+ * here. Deliberately above the largest per-module cap in the app today
+ * (finance's 20MB) so it never fights a legitimate, already-validated
+ * upload; it exists to bound the unvalidated case, not to be the primary
+ * limit any single module relies on.
+ */
+export const MAX_STORED_FILE_SIZE_BYTES = 25 * 1024 * 1024; // 25MB
+
+export class FileTooLargeError extends Error {}
+
 function storageRoot(): string {
   return process.env.FILE_STORAGE_ROOT ?? path.join(process.cwd(), ".data", "storage");
 }
@@ -40,6 +53,12 @@ export interface SaveFileResult {
 
 /** Writes a file under `<category>/<year>/<month>/<uuid><ext>` and returns the relative key to persist in the DB. */
 export async function saveFile({ buffer, originalName, category }: SaveFileInput): Promise<SaveFileResult> {
+  if (buffer.length > MAX_STORED_FILE_SIZE_BYTES) {
+    throw new FileTooLargeError(
+      `File is ${buffer.length} bytes, exceeding the ${MAX_STORED_FILE_SIZE_BYTES}-byte storage ceiling`,
+    );
+  }
+
   const now = new Date();
   const dir = path.join(category, String(now.getUTCFullYear()), String(now.getUTCMonth() + 1).padStart(2, "0"));
   const ext = path.extname(originalName);

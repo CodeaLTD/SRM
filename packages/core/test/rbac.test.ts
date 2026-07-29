@@ -36,6 +36,8 @@ describe("can — PRD §6 role matrix", () => {
     // ЗБУТ register management — Admin only (Analyst is "awareness only",
     // Sales has none, User only confirms their own).
     ["osh:register:manage", [Role.ADMIN]],
+    // Analyst "awareness only" — read the register, no create/edit/confirm.
+    ["osh:register:read", [Role.ANALYST]],
     // Own instruction confirmation — Admin + User (PRD: "own confirmation").
     ["osh:instruction:confirm:own", [Role.ADMIN, Role.USER]],
     // "Own tasks" is a checkmark for every role in the PRD table.
