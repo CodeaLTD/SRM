@@ -40,6 +40,9 @@ model User {
   transactionsCreated    Transaction[]        @relation("TransactionCreatedBy")
   transactionsConfirmed  Transaction[]        @relation("TransactionConfirmedBy")
   subscriptions          Subscription[]
+  instructionsAsEmployee   Instruction[] @relation("InstructionEmployee")
+  instructionsAsInstructor Instruction[] @relation("InstructionInstructor")
+  instructionsCreated      Instruction[] @relation("InstructionCreatedBy")
 
   @@map("users")
 }
@@ -161,6 +164,7 @@ enum DocumentType {
   ADVANCE_REPORT
   PROFORMA_INVOICE
   SUPPLIER_INVOICE_UPLOAD
+  INSTRUCTION_DECLARATION
 }
 
 // A supplier-side file a user uploads (FIN-4). Distinct from
@@ -228,6 +232,8 @@ model GeneratedDocument {
   createdBy      User         @relation(fields: [createdById], references: [id], onDelete: Restrict)
   createdAt      DateTime     @default(now())
 
+  instruction Instruction?
+
   @@index([documentType, createdAt])
   @@map("generated_documents")
 }
@@ -265,4 +271,46 @@ model Subscription {
 
   @@index([renewsAt])
   @@map("subscriptions")
+}
+
+// OSH — Health & Safety instruction register (Epic 05, Наредба № РД-07-2).
+// Exact next-periodic-date interval rules are TBD pending legal
+// confirmation (§14 Q2) — isolated in packages/core/src/osh/schedule.ts so
+// they can change without touching this schema.
+enum InstructionType {
+  INITIAL // Начален
+  WORKPLACE // На работното място
+  PERIODIC // Периодичен
+  EXTRAORDINARY // Извънреден
+}
+
+model Instruction {
+  id                String           @id @default(cuid())
+  type              InstructionType
+  employeeId        String
+  employee          User             @relation("InstructionEmployee", fields: [employeeId], references: [id], onDelete: Restrict)
+  instructorId      String
+  instructor        User             @relation("InstructionInstructor", fields: [instructorId], references: [id], onDelete: Restrict)
+  conductedAt       DateTime
+  nextPeriodicDueAt DateTime?
+  // Idempotency guard for the 14-day-before deadline scan (OSH-3), mirrors
+  // Subscription.lastAlertedForRenewsAt.
+  lastAlertedForDueAt DateTime?
+
+  // OSH-5/6: digital acknowledgement — immutable once set (see actions.ts,
+  // which never exposes an update path for these fields after confirm).
+  confirmedAt DateTime?
+  confirmedIp String?
+
+  declarationDocumentId String?            @unique
+  declarationDocument   GeneratedDocument? @relation(fields: [declarationDocumentId], references: [id], onDelete: SetNull)
+
+  createdById String
+  createdBy   User     @relation("InstructionCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([nextPeriodicDueAt])
+  @@map("instructions")
 }

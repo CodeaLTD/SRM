@@ -19,6 +19,7 @@ export type Capability =
   | "leave:request:own"
   | "leave:approve"
   | "osh:register:manage"
+  | "osh:register:read"
   | "osh:instruction:confirm:own"
   | "crm:read"
   | "crm:write"
@@ -51,6 +52,9 @@ const CAPABILITY_MATRIX: Record<Role, ReadonlySet<Capability>> = {
     "finance:write",
     "finance:confirm",
     "leave:request:own",
+    // PRD §8 Module 5 access note: Analyst is awareness-only on OSH — read
+    // the register, no create/edit/confirm.
+    "osh:register:read",
     "tasks:read",
     "tasks:write",
   ]),

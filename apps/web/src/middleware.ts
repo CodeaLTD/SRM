@@ -18,7 +18,7 @@ const ROUTE_ROLE_REQUIREMENTS: { prefix: string; roles: Role[] }[] = [
   { prefix: "/finance", roles: ["ADMIN", "ANALYST"] },
   { prefix: "/crm", roles: ["ADMIN", "SALES"] },
   { prefix: "/hr", roles: ["ADMIN", "SALES", "USER"] },
-  { prefix: "/osh", roles: ["ADMIN", "USER"] },
+  { prefix: "/osh", roles: ["ADMIN", "USER", "ANALYST"] },
 ];
 
 export default auth((req) => {
